@@ -1,0 +1,389 @@
+Understanding REST Architecture
+REST (Representational State Transfer) is an architectural style for designing networked
+applications. It relies on a stateless, client-server protocol, almost always HTTP.
+Key Principles of REST
+Statelessness: Each request from a client to server must contain all the information needed to
+understand and process the request. The server should not store any client context between
+requests.
+Client-Server Architecture: The client and server are separate entities that communicate over
+a network. This separation allows them to evolve independently.
+Uniform Interface: REST uses standard HTTP methods (GET, POST, PUT, DELETE, PATCH)
+to perform operations on resources. Resources are identified by URIs (Uniform Resource
+Identifiers).
+Resource-Based: Everything in REST is considered a resource (users, products, orders). Each
+resource is identified by a unique URI, such as /api/users/123 or /api/products/456.
+Representation: Resources can have multiple representations (JSON, XML, HTML). The client
+and server negotiate the format using HTTP headers like Accept and Content-Type.
+REST vs Traditional Web Services
+Traditional web services often use complex protocols like SOAP, which require extensive XML
+parsing and have strict specifications. REST, on the other hand, leverages the simplicity of
+HTTP and typically uses lightweight data formats like JSON, making it easier to implement and
+consume.
+Common HTTP Status Codes
+Understanding HTTP status codes is essential when building RESTful services:
+● 200 OK: The request succeeded
+● 201 Created: A new resource was successfully created
+● 204 No Content: The request succeeded but returns no content
+● 400 Bad Request: The server cannot process the request due to client error
+
+● 401 Unauthorized: Authentication is required
+● 404 Not Found: The requested resource doesn’t exist
+● 500 Internal Server Error: The server encountered an unexpected condition
+
+GET vs POST Requests
+HTTP methods define the action to be performed on a resource. GET and POST are the most
+commonly used methods, but they serve very different purposes.
+GET Request
+The GET method is used to retrieve data from the server. It should only fetch data and should
+not modify any resources.
+Characteristics of GET:
+● Data is sent via URL query parameters (visible in the browser address bar)
+● Requests can be cached by browsers
+● Requests remain in browser history
+● Requests can be bookmarked
+● Has length restrictions (URL length limits)
+● Should be idempotent (multiple identical requests should have the same effect)
+● Should not be used for sensitive data
+Example GET Request:
+GET /api/users?page=1&limit=10 HTTP/1.1
+Host: example.com
+Use Cases for GET:
+● Fetching a list of resources
+● Retrieving a specific resource by ID
+● Searching or filtering data
+● Getting public information
+POST Request
+The POST method is used to send data to the server to create or update a resource. The data
+is sent in the request body.
+Characteristics of POST:
+● Data is sent in the request body (not visible in URL)
+● Requests are not cached
+● Requests do not remain in browser history
+● Cannot be bookmarked
+● No restrictions on data length
+● Can handle binary data (files, images)
+● More secure for sensitive data
+Example POST Request:
+POST /api/users HTTP/1.1
+Host: example.com
+
+Content-Type: application/json
+{
+"name": "John Doe",
+"email": "john@example.com",
+"age": 25
+}
+Use Cases for POST:
+● Creating new resources
+● Submitting form data
+● Uploading files
+● Sending sensitive information (passwords, personal data)
+Comparison Table
+Feature
+GET
+POST
+Data Location
+URL parameters
+Request body
+Visibility
+Visible in URL
+Hidden in body
+Caching
+Can be cached
+Not cached
+History
+Saved in history
+Not saved
+Data Length
+Limited
+Unlimited
+Security
+Less secure
+More secure
+Purpose
+Retrieve data
+Submit/Create data
+
+Parsing Request Body Using Express Middleware
+When building REST APIs with Express.js, you need middleware to parse incoming request
+bodies. Without middleware, req.body would be undefined.
+
+What is Middleware?
+Middleware functions are functions that have access to the request object, response object, and
+the next middleware function in the application’s request-response cycle. They can execute
+code, modify request and response objects, end the request-response cycle, or call the next
+middleware.
+Built-in Express Middleware
+Express provides built-in middleware for parsing different types of request bodies.
+Setting Up Express with Body Parsing:
+javascript
+const express = require('express');
+const app = express();
+// Parse JSON bodies
+app.use(express.json());
+// Parse URL-encoded bodies (from HTML forms)
+app.use(express.urlencoded({ extended: true }));
+const PORT = 3000;
+app.listen(PORT, () => {
+console.log(`Server running on port ${PORT}`);
+});
+
+express.json()
+This middleware parses incoming requests with JSON payloads. It’s based on the body-parser
+middleware that was previously a separate package but is now built into Express.
+javascript
+app.use(express.json());
+app.post('/api/users', (req, res) => {
+// req.body now contains the parsed JSON
+console.log(req.body);
+const { name, email } = req.body;
+res.json({ message: 'User received', user: { name, email } });
+});
+Example Request:
+bash
+curl -X POST http://localhost:3000/api/users \
+-H "Content-Type: application/json" \
+-d '{"name":"Alice","email":"alice@example.com"}'
+
+express.urlencoded()
+This middleware parses incoming requests with URL-encoded payloads (typically from HTML
+forms).
+javascript
+app.use(express.urlencoded({ extended: true }));
+app.post('/api/form', (req, res) => {
+// req.body contains parsed form data
+const { username, password } = req.body;
+res.send(`Username: ${username}`);
+});
+The extended: true option allows parsing of nested objects using the qs library, while extended:
+false uses the querystring library.
+Middleware Order Matters
+Middleware is executed in the order it’s defined. Body parsing middleware must be defined
+before route handlers that need to access req.body.
+javascript
+// Correct order
+app.use(express.json());
+app.post('/api/data', (req, res) => {
+console.log(req.body); // This will work
+});
+// Wrong order - won't work
+app.post('/api/data', (req, res) => {
+console.log(req.body); // This will be undefined
+});
+app.use(express.json());
+
+Custom Middleware Example
+You can also create custom middleware for validation or logging:
+javascript
+// Custom logging middleware
+app.use((req, res, next) => {
+console.log(`${req.method} ${req.url}`);
+next(); // Pass control to next middleware
+});
+// Custom validation middleware
+const validateUser = (req, res, next) => {
+const { name, email } = req.body;
+
+if (!name || !email) {
+return res.status(400).json({ error: 'Name and email are required'
+});
+}
+next();
+};
+app.post('/api/users', validateUser, (req, res) => {
+res.json({ message: 'Valid user data received' });
+});
+
+Creating REST Routes for CRUD Operations
+CRUD stands for Create, Read, Update, and Delete. These are the four basic operations for
+persistent storage. In REST, these operations map to HTTP methods.
+CRUD to HTTP Method Mapping
+● Create → POST
+● Read → GET
+● Update → PUT or PATCH
+● Delete → DELETE
+Complete CRUD Example
+Let’s build a simple RESTful API for managing a collection of books.
+Initial Setup:
+javascript
+const express = require('express');
+const app = express();
+// Middleware
+app.use(express.json());
+// In-memory database (array)
+let books = [
+{ id: 1, title: 'The Great Gatsby', author: 'F. Scott Fitzgerald',
+year: 1925 },
+{ id: 2, title: '1984', author: 'George Orwell', year: 1949 },
+{ id: 3, title: 'To Kill a Mockingbird', author: 'Harper Lee', year:
+1960 }
+];
+let nextId = 4; // Counter for generating new IDs
+
+const PORT = 3000;
+app.listen(PORT, () => {
+console.log(`Server running on port ${PORT}`);
+});
+
+CREATE Operation (POST)
+Create a new book resource.
+javascript
+// POST /api/books - Create a new book
+app.post('/api/books', (req, res) => {
+const { title, author, year } = req.body;
+// Validation
+if (!title || !author || !year) {
+return res.status(400).json({
+error: 'Title, author, and year are required'
+});
+}
+// Create new book
+const newBook = {
+id: nextId++,
+title,
+author,
+year
+};
+books.push(newBook);
+// Respond with 201 Created status
+res.status(201).json(newBook);
+});
+Test with curl:
+bash
+curl -X POST http://localhost:3000/api/books \
+-H "Content-Type: application/json" \
+-d '{"title":"The Catcher in the Rye","author":"J.D.
+Salinger","year":1951}'
+
+READ Operations (GET)
+Read can be divided into two operations: getting all resources and getting a specific resource by
+ID.
+Get All Books:
+
+javascript
+// GET /api/books - Get all books
+app.get('/api/books', (req, res) => {
+res.json(books);
+});
+Get a Single Book by ID:
+javascript
+// GET /api/books/:id - Get a specific book
+app.get('/api/books/:id', (req, res) => {
+const id = parseInt(req.params.id);
+const book = books.find(b => b.id === id);
+if (!book) {
+return res.status(404).json({ error: 'Book not found' });
+}
+res.json(book);
+});
+Test with curl:
+bash
+# Get all books
+curl http://localhost:3000/api/books
+# Get specific book
+curl http://localhost:3000/api/books/1
+
+UPDATE Operations (PUT and PATCH)
+PUT replaces the entire resource, while PATCH updates specific fields.
+PUT - Replace entire resource:
+javascript
+// PUT /api/books/:id - Update entire book
+app.put('/api/books/:id', (req, res) => {
+const id = parseInt(req.params.id);
+const bookIndex = books.findIndex(b => b.id === id);
+if (bookIndex === -1) {
+return res.status(404).json({ error: 'Book not found' });
+}
+const { title, author, year } = req.body;
+// Validation
+if (!title || !author || !year) {
+return res.status(400).json({
+
+error: 'Title, author, and year are required'
+});
+}
+// Replace the entire book object
+books[bookIndex] = { id, title, author, year };
+res.json(books[bookIndex]);
+});
+PATCH - Partial update:
+javascript
+// PATCH /api/books/:id - Partially update book
+app.patch('/api/books/:id', (req, res) => {
+const id = parseInt(req.params.id);
+const bookIndex = books.findIndex(b => b.id === id);
+if (bookIndex === -1) {
+return res.status(404).json({ error: 'Book not found' });
+}
+// Update only provided fields
+const { title, author, year } = req.body;
+if (title) books[bookIndex].title = title;
+if (author) books[bookIndex].author = author;
+if (year) books[bookIndex].year = year;
+res.json(books[bookIndex]);
+});
+Test with curl:
+bash
+# PUT - replace entire resource
+curl -X PUT http://localhost:3000/api/books/1 \
+-H "Content-Type: application/json" \
+-d '{"title":"Updated Title","author":"Updated Author","year":2020}'
+# PATCH - update specific fields
+curl -X PATCH http://localhost:3000/api/books/1 \
+-H "Content-Type: application/json" \
+-d '{"year":2021}'
+
+DELETE Operation (DELETE)
+Remove a resource from the server.
+javascript
+
+// DELETE /api/books/:id - Delete a book
+app.delete('/api/books/:id', (req, res) => {
+const id = parseInt(req.params.id);
+const bookIndex = books.findIndex(b => b.id === id);
+if (bookIndex === -1) {
+return res.status(404).json({ error: 'Book not found' });
+}
+// Remove the book
+const deletedBook = books.splice(bookIndex, 1)[0];
+// Respond with 200 and the deleted resource
+res.json({
+message: 'Book deleted successfully',
+book: deletedBook
+});
+});
+Test with curl:
+bash
+curl -X DELETE http://localhost:3000/api/books/1
+
+Complete Routes Summary
+javascript
+// CRUD Operations Summary
+app.post('/api/books', ...); // CREATE
+app.get('/api/books', ...); // READ (all)
+app.get('/api/books/:id', ...); // READ (one)
+app.put('/api/books/:id', ...); // UPDATE (full)
+app.patch('/api/books/:id', ...); // UPDATE (partial)
+app.delete('/api/books/:id', ...); // DELETE
+
+Best Practices for REST APIs
+Use Plural Nouns: Use /api/books instead of /api/book for consistency.
+Use HTTP Status Codes Correctly: Return appropriate status codes (200, 201, 404, 400,
+500).
+Version Your API: Consider versioning like /api/v1/books for future changes.
+Implement Error Handling: Always validate input and handle errors gracefully.
+Use Route Parameters for Resource IDs: Use /api/books/:id instead of /api/books?id=1.
+Return Consistent Response Formats: Always return JSON with consistent structure.
+Error Handling Middleware
+
+Add a global error handler at the end of your routes:
+javascript
+// 404 handler
+app.use((req, res) => {
+res.status(404).json({ error: 'Route not found' });
+});
+// Global error handler
+app.use((err, req, res, next) => {
+console.error(err.stack);
+res.status(500).json({ error: 'Something went wrong!' });
+});
